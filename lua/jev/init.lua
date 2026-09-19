@@ -11,6 +11,9 @@ M.config = {
   api_endpoint = "https://api.typesafe.ai/v1/systemone",
   model = "jev-latest",
   debug = false,              -- enable debug logging
+
+  min_word_length = 3,        -- words shorter than this are dropped from buffer words
+  max_extract_words = 5000,   -- max unique words extracted from a buffer (NOTE: sẽ điều chỉnh sau)
 }
 
 -- User-facing setup.

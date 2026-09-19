@@ -10,6 +10,10 @@ local entry = nil
 local hits = 0
 local misses = 0
 
+-- Jev ranking results live in a separate table so buffer-word caching is
+-- unaffected by them.
+local jev_results = {}
+
 -- Return the current buffer's words, reusing the cache while the buffer is
 -- unchanged. Any edit bumps changedtick and invalidates the cache.
 function M.get_words()
@@ -27,11 +31,12 @@ function M.get_words()
   return words
 end
 
--- Drop the cached entry and reset stats.
+-- Drop both cached buffer words and cached Jev results, and reset stats.
 function M.clear()
   entry = nil
   hits = 0
   misses = 0
+  jev_results = {}
 end
 
 -- Cache statistics for debugging: { hits = N, misses = N, size = N }
@@ -41,6 +46,42 @@ function M.stats()
     misses = misses,
     size = entry and 1 or 0,
   }
+end
+
+-- Lifetime of a cached Jev result, in milliseconds.
+M.jev_ttl_ms = 5000
+
+local function jev_key(bufnr, changedtick, prefix)
+  return string.format("%d:%d:%s", bufnr, changedtick, prefix)
+end
+
+-- Store a Jev result for (bufnr, changedtick, prefix).
+function M.set_jev_result(bufnr, changedtick, prefix, probabilities)
+  jev_results[jev_key(bufnr, changedtick, prefix)] = {
+    time = vim.uv.hrtime() / 1e6,
+    probabilities = probabilities,
+  }
+end
+
+-- Return the cached Jev result, or nil when missing or past its TTL.
+function M.get_jev_result(bufnr, changedtick, prefix)
+  local key = jev_key(bufnr, changedtick, prefix)
+  local stored = jev_results[key]
+  if not stored then
+    return nil
+  end
+
+  if vim.uv.hrtime() / 1e6 - stored.time >= M.jev_ttl_ms then
+    jev_results[key] = nil
+    return nil
+  end
+
+  return stored.probabilities
+end
+
+-- Drop cached Jev results only.
+function M.clear_jev()
+  jev_results = {}
 end
 
 return M

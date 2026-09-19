@@ -1,0 +1,7 @@
+.env
+*.swp
+__pycache__/
+.DS_Store
+.omo/
+.codegraph
+asterix_story_log.json

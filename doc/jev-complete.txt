@@ -1,0 +1,54 @@
+*jev-complete.txt*  Code completion ranked by Jev (TypeSafe AI)
+
+==============================================================================
+CONTENTS                                        *jev-complete-contents*
+
+  1. Introduction ...................... |jev-complete-introduction|
+  2. Setup ............................. |jev-complete-setup|
+  3. Configuration ..................... |jev-complete-config|
+  4. Commands .......................... |jev-complete-commands|
+
+==============================================================================
+1. INTRODUCTION                                 *jev-complete-introduction*
+
+jev-complete.nvim provides code completion using Neovim's built-in
+|complete-functions|. Candidates are collected from the buffer and returned
+immediately as fuzzy matches; Jev (TypeSafe AI) then ranks them
+asynchronously and updates the completion menu with |complete()|.
+
+Jev acts as a ranking arbiter only. It does not generate code.
+
+Requires Neovim >= 0.12.
+
+==============================================================================
+2. SETUP                                             *jev-complete-setup*
+
+>lua
+    require("jev").setup({})
+<
+
+==============================================================================
+3. CONFIGURATION                                   *jev-complete-config*
+
+>lua
+    require("jev").setup({
+      enabled = true,
+      confidence_threshold = 0.7,
+      max_candidates = 30,
+      api_endpoint = "https://api.typesafe.ai/v1/systemone",
+      model = "jev-latest",
+      debug = false,
+    })
+<
+
+The API key is read from `vim.g.jev_api_key` or `$TYPESAFE_API_KEY`.
+
+==============================================================================
+4. COMMANDS                                       *jev-complete-commands*
+
+                                                        *:JevComplete*
+:JevComplete            Placeholder. Commands will be documented in a later
+                        phase.
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:

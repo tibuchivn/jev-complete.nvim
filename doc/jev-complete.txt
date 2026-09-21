@@ -8,10 +8,11 @@ CONTENTS                                              *jev-complete-contents*
   3. Installation ................ |jev-complete-installation|
   4. Setup ....................... |jev-complete-setup|
   5. Usage ....................... |jev-complete-usage|
-  6. Configuration ............... |jev-complete-configuration|
-  7. Architecture ................ |jev-complete-architecture|
-  8. Troubleshooting ............. |jev-complete-troubleshooting|
-  9. License ..................... |jev-complete-license|
+  6. Auto-trigger ................ |jev-complete-auto-trigger|
+  7. Configuration ............... |jev-complete-configuration|
+  8. Architecture ................ |jev-complete-architecture|
+  9. Troubleshooting ............. |jev-complete-troubleshooting|
+ 10. License ..................... |jev-complete-license|
 
 ==============================================================================
 1. INTRODUCTION                                  *jev-complete-introduction*
@@ -83,7 +84,35 @@ to fuzzy matching only.
 Accept a candidate with <C-y>, or select one with <C-n> / <C-p>.
 
 ==============================================================================
-6. CONFIGURATION                             *jev-complete-configuration*
+6. AUTO-TRIGGER                              *jev-complete-auto-trigger*
+
+Completion is manual by default: you press <C-x><C-u>. To have it fire while
+you type, opt in: >lua
+
+    require("jev").setup({
+      auto_trigger = true,
+      auto_debounce_ms = 500,   -- wait this long after the last keystroke
+    })
+<
+Auto-trigger fires only when all of the following hold:
+
+  - you are in insert mode
+  - the completion menu is not already open
+  - the word before the cursor is at least `min_word_length` characters long
+  - the filetype is not listed in `disabled_filetypes`
+  - the buffer is not readonly
+
+It waits `auto_debounce_ms` after your last keystroke before calling Jev, so the
+API is not hit on every character. A word-ending character (space, punctuation)
+cancels a pending trigger, and pressing <C-x><C-u> cancels it and runs the
+manual flow instead, so the two never double-fire.
+
+NOTE: auto-trigger increases API calls significantly, because every pause in
+typing is a request. The debounce is deliberately longer than the manual one for
+this reason. Monitor your usage.
+
+==============================================================================
+7. CONFIGURATION                             *jev-complete-configuration*
 
 >lua
     require("jev").setup({
@@ -96,16 +125,17 @@ Accept a candidate with <C-y>, or select one with <C-n> / <C-p>.
       debug_guards = false,         -- log why a menu update was rejected
 
       min_word_length = 3,          -- shorter words are not candidates
-      max_extract_words = 5000,     -- cap on unique words taken from a buffer
+      max_extract_words = 20000,    -- cap on unique words taken from a buffer
 
       jev_question_format = "noul", -- "noul" | "choice" | "score"
       jev_timeout_ms = 3000,        -- per-request timeout
-      debounce_ms = 300,            -- delay before asking Jev
+      debounce_ms = 300,            -- delay before asking Jev (manual)
+      auto_debounce_ms = 500,       -- delay before asking Jev (auto)
       max_context_tokens = 28000,   -- context ceiling
       context_fallback_lines = 200, -- lines around the cursor over the ceiling
 
       disabled_filetypes = {},      -- filetypes that never get the completefunc
-      auto_trigger = false,         -- auto-trigger (not implemented yet)
+      auto_trigger = false,         -- complete automatically while typing
       manage_completeopt = true,    -- add buffer-local 'noselect'
       menu_update_mode = "auto",    -- "feedkeys" | "inplace" | "auto"
     })
@@ -114,6 +144,17 @@ Accept a candidate with <C-y>, or select one with <C-n> / <C-p>.
 `confidence_threshold` ~
 	Jev only reorders when its probability for a candidate reaches this value.
 	Below it the fuzzy order is kept.
+
+						*jev-complete-config-auto*
+`auto_trigger` ~
+	Fire completion automatically while typing. Off by default; see
+	|jev-complete-auto-trigger|.
+
+						*jev-complete-config-auto-debounce*
+`auto_debounce_ms` ~
+	How long to wait after the last keystroke before an auto-triggered request
+	is sent. Kept separate from `debounce_ms` so the manual trigger stays
+	responsive.
 
 						*jev-complete-config-format*
 `jev_question_format` ~
@@ -140,7 +181,7 @@ Accept a candidate with <C-y>, or select one with <C-n> / <C-p>.
 <
 
 ==============================================================================
-7. ARCHITECTURE                              *jev-complete-architecture*
+8. ARCHITECTURE                              *jev-complete-architecture*
 
 Completion runs in passes because a completefunc cannot return
 asynchronously:
@@ -161,7 +202,7 @@ absent: the completion menu selects its first entry and changes the buffer's
 real completion.
 
 ==============================================================================
-8. TROUBLESHOOTING                        *jev-complete-troubleshooting*
+9. TROUBLESHOOTING                        *jev-complete-troubleshooting*
 
 No completion menu at all ~
 	Check the filetype is not in `disabled_filetypes`, and that >vim
@@ -188,7 +229,7 @@ Slow on a large buffer ~
 	`tests/benchmark_large_buffer.lua` reports timings for each stage.
 
 ==============================================================================
-9. LICENSE                                          *jev-complete-license*
+10. LICENSE                                         *jev-complete-license*
 
 MIT. See LICENSE in the repository. API key handling practices are documented
 in SECURITY.md.

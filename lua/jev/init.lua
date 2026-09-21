@@ -13,16 +13,19 @@ M.config = {
   debug = false,              -- enable debug logging
 
   min_word_length = 3,        -- words shorter than this are dropped from buffer words
-  max_extract_words = 5000,   -- max unique words extracted from a buffer (NOTE: sẽ điều chỉnh sau)
+  max_extract_words = 20000,  -- max unique words extracted from a buffer; Phase 4 measured an
+                              -- uncapped pass over 5000 words at 9ms, so 20000 is ~36ms
 
   jev_question_format = "noul", -- "noul" | "choice" | "score": how candidates are asked about
   jev_timeout_ms = 3000,        -- raised from 500ms: Phase 3 measured real Jev latency at 0.5-1.5s
-  debounce_ms = 300,            -- delay before firing a Jev call
+  debounce_ms = 300,            -- delay before firing a Jev call (manual trigger)
+  auto_debounce_ms = 500,       -- delay before an auto-triggered Jev call; longer than
+                                -- debounce_ms so typing does not spam the API
   max_context_tokens = 28000,   -- estimated token ceiling for the sent context
   context_fallback_lines = 200, -- lines around the cursor used when the buffer is too large
 
   disabled_filetypes = {},      -- filetypes that never get the completefunc
-  auto_trigger = false,         -- auto completion is not implemented yet
+  auto_trigger = false,         -- fire completion automatically while typing (opt-in)
   debug_guards = false,         -- log which guard rejected a re-trigger (independent of debug)
   manage_completeopt = true,    -- add buffer-local noselect so the menu can be rebuilt
   menu_update_mode = "auto",   -- "feedkeys" | "inplace" | "auto": how the ranked menu replaces the fuzzy one
@@ -77,6 +80,29 @@ local function register_autocmds()
       if M.config.manage_completeopt then
         ensure_noselect(args.buf)
       end
+    end,
+  })
+
+  -- Auto-trigger is armed per typed character. InsertCharPre is used rather
+  -- than TextChangedI because TextChangedI also fires when insert mode is
+  -- entered, with nothing typed, and because pasting through the terminal
+  -- produces one TextChangedI for the whole paste rather than per-character
+  -- events that the debounce can coalesce (see .omo/PHASE5_FINDINGS.md).
+  vim.api.nvim_create_autocmd("InsertCharPre", {
+    group = augroup,
+    callback = function(args)
+      if not M.config.auto_trigger then
+        return
+      end
+
+      -- Only word characters are interesting; a space or punctuation ends the
+      -- word being typed, so a trigger there would be noise.
+      if not vim.v.char:match("[%w_]") then
+        require("jev.complete").cancel_auto()
+        return
+      end
+
+      require("jev.complete")._schedule_auto_trigger()
     end,
   })
 end

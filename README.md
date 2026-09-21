@@ -75,16 +75,17 @@ require("jev").setup({
   debug_guards = false,            -- log why a menu update was rejected
 
   min_word_length = 3,             -- shorter words are not candidates
-  max_extract_words = 5000,        -- cap on unique words taken from a buffer
+  max_extract_words = 20000,       -- cap on unique words taken from a buffer
 
   jev_question_format = "noul",    -- "noul" | "choice" | "score"
   jev_timeout_ms = 3000,           -- per-request timeout
-  debounce_ms = 300,               -- delay before asking Jev
+  debounce_ms = 300,               -- delay before asking Jev (manual trigger)
+  auto_debounce_ms = 500,          -- delay before asking Jev (auto trigger)
   max_context_tokens = 28000,      -- context ceiling
   context_fallback_lines = 200,    -- lines around the cursor when over the ceiling
 
   disabled_filetypes = {},         -- filetypes that never get the completefunc
-  auto_trigger = false,            -- auto-trigger completion (not implemented yet)
+  auto_trigger = false,            -- complete automatically while typing (opt-in)
   manage_completeopt = true,       -- add buffer-local 'noselect'
   menu_update_mode = "auto",       -- "feedkeys" | "inplace" | "auto"
 })
@@ -102,7 +103,38 @@ require("jev").setup({
   `feedkeys` force one strategy. See `.omo/PHASE4_FINDINGS.md` for measurements.
 - `max_extract_words` - on very large buffers extraction stops at this cap, so
   words appearing after the first N unique words are not offered as candidates.
+  Extraction over 5000 words measured 9ms, so the default of 20000 is cheap.
+- `auto_trigger` / `auto_debounce_ms` - see "Auto-trigger" below.
 - `disabled_filetypes` - e.g. `{ "TelescopePrompt", "NvimTree", "markdown" }`.
+
+## Auto-trigger
+
+By default completion is manual: you press `<C-x><C-u>`. To have it fire while
+you type, opt in:
+
+```lua
+require("jev").setup({
+  auto_trigger = true,
+  auto_debounce_ms = 500,  -- how long to wait after your last keystroke
+})
+```
+
+Auto-trigger fires only when all of these hold:
+
+- you are in insert mode
+- the completion menu is not already open
+- the word before the cursor is at least `min_word_length` characters
+- the filetype is not in `disabled_filetypes`
+- the buffer is not readonly
+
+It waits `auto_debounce_ms` after your last keystroke before calling Jev, which
+keeps the API from being hit on every character. A word-ending character (space,
+punctuation) cancels a pending trigger, and pressing `<C-x><C-u>` cancels it and
+runs the manual flow instead, so the two never double-fire.
+
+**Auto-trigger increases API calls significantly.** Typing a whole word means
+one request once you pause, and every pause is a request, so monitor your usage.
+The debounce is deliberately longer than the manual one for this reason.
 
 ## Architecture
 

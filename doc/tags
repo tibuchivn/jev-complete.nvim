@@ -1,4 +1,7 @@
 jev-complete-architecture	jev-complete.txt	/*jev-complete-architecture*
+jev-complete-auto-trigger	jev-complete.txt	/*jev-complete-auto-trigger*
+jev-complete-config-auto	jev-complete.txt	/*jev-complete-config-auto*
+jev-complete-config-auto-debounce	jev-complete.txt	/*jev-complete-config-auto-debounce*
 jev-complete-config-extract	jev-complete.txt	/*jev-complete-config-extract*
 jev-complete-config-filetypes	jev-complete.txt	/*jev-complete-config-filetypes*
 jev-complete-config-format	jev-complete.txt	/*jev-complete-config-format*

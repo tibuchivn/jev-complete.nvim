@@ -243,6 +243,12 @@ function M.JevComplete(findstart, base)
     return findstart == 1 and -3 or {}
   end
 
+  -- A manual <C-x><C-u> takes precedence over any pending auto trigger: this
+  -- function only runs when completion was actually invoked, so arriving here
+  -- means the user (or the auto timer) started a completion and the queued
+  -- auto timer is now redundant.
+  M.cancel_auto()
+
   if findstart == 1 then
     local line = vim.api.nvim_get_current_line()
     local start_col = word_start_col(line, vim.fn.col(".") - 1)
@@ -309,9 +315,110 @@ function M.trigger()
   )
 end
 
+-- ---------------------------------------------------------------------------
+-- Auto-trigger
+-- ---------------------------------------------------------------------------
+
+-- Handle of the pending auto debounce timer, kept separate from the manual
+-- debounce so the two triggers cannot cancel each other.
+M.auto_timer = nil
+
+-- Number of characters in the word immediately before the cursor.
+local function prefix_length()
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.fn.col(".") - 1
+  return col - word_start_col(line, col)
+end
+
+-- Decide whether auto-trigger may fire right now.
+-- `mock` lets the conditions be unit tested without an insert-mode session.
+function M._should_auto_trigger(mock)
+  mock = mock or {}
+
+  if not init.config.auto_trigger then
+    init.log_guard("auto reject: auto_trigger disabled")
+    return false
+  end
+
+  local mode = mock.mode or vim.fn.mode
+  if mode() ~= "i" then
+    init.log_guard("auto reject: not in insert mode")
+    return false
+  end
+
+  local pumvisible = mock.pumvisible or vim.fn.pumvisible
+  if pumvisible() ~= 0 then
+    init.log_guard("auto reject: menu already open")
+    return false
+  end
+
+  local length = mock.prefix_length or prefix_length
+  if length() < init.config.min_word_length then
+    init.log_guard("auto reject: prefix shorter than min_word_length")
+    return false
+  end
+
+  local filetype = mock.filetype or function()
+    return vim.bo.filetype
+  end
+  for _, disabled in ipairs(init.config.disabled_filetypes) do
+    if filetype() == disabled then
+      init.log_guard("auto reject: filetype disabled")
+      return false
+    end
+  end
+
+  local readonly = mock.readonly or function()
+    return vim.bo.readonly
+  end
+  if readonly() then
+    init.log_guard("auto reject: buffer is readonly")
+    return false
+  end
+
+  -- A request for the same prefix is already in flight.
+  if M.state.call_id and M.state.prefix == mock.current_prefix and mock.current_prefix ~= nil then
+    init.log_guard("auto reject: call already in flight for this prefix")
+    return false
+  end
+
+  return true
+end
+
+-- Cancel a pending auto trigger (called when the user triggers manually).
+function M.cancel_auto()
+  if M.auto_timer then
+    M.auto_timer:stop()
+    M.auto_timer:close()
+    M.auto_timer = nil
+  end
+end
+
+-- Rearm the auto timer. Fires once the user has stopped typing for
+-- auto_debounce_ms, which keeps the API from being hit on every keystroke.
+function M._schedule_auto_trigger()
+  M.cancel_auto()
+
+  local timer = vim.uv.new_timer()
+  M.auto_timer = timer
+  timer:start(init.config.auto_debounce_ms, 0, vim.schedule_wrap(function()
+    timer:stop()
+    timer:close()
+    if M.auto_timer ~= timer then
+      return
+    end
+    M.auto_timer = nil
+
+    if M._should_auto_trigger() then
+      M.trigger()
+    end
+  end))
+end
+
 -- Reset all cross-pass state (used by tests).
 function M.reset()
   stop_debounce_timer()
+  M.cancel_auto()
   reset_state()
 end
 

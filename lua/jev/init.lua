@@ -87,7 +87,7 @@ local function register_autocmds()
   -- than TextChangedI because TextChangedI also fires when insert mode is
   -- entered, with nothing typed, and because pasting through the terminal
   -- produces one TextChangedI for the whole paste rather than per-character
-  -- events that the debounce can coalesce (see .omo/PHASE5_FINDINGS.md).
+  -- events that the debounce can coalesce.
   vim.api.nvim_create_autocmd("InsertCharPre", {
     group = augroup,
     callback = function(args)

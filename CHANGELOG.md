@@ -34,9 +34,6 @@ First release.
 - Three test layers: unit (headless), integration (live Jev API), and real-UI
   E2E through tmux.
 - `SECURITY.md` documenting the API key exposure incident and its remediation.
-- `.omo/PHASE3_FINDINGS.md` and `.omo/PHASE4_FINDINGS.md` and
-  `.omo/PHASE5_FINDINGS.md`: case studies of the bugs found during
-  implementation.
 
 ### Changed
 
@@ -49,10 +46,10 @@ First release.
 
 ### Fixed
 
-- Nine bugs found during Phase 3; see `.omo/PHASE3_FINDINGS.md`. The most
-  consequential: the guards compared two different coordinate spaces and so
-  rejected every real update, and re-filtering inside the async callback changed
-  the candidate set instead of only reordering it.
+- Nine bugs found during Phase 3. The most consequential: the guards compared
+  two different coordinate spaces and so rejected every real update, and
+  re-filtering inside the async callback changed the candidate set instead of
+  only reordering it.
 - `filter_candidates` now preserves the `lower` field, closing a Phase 1 to
   Phase 2 interface gap that crashed question building.
 - Guard prefix off-by-one in normal mode.

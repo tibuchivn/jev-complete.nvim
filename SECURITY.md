@@ -4,13 +4,14 @@
 
 ### What happened
 
-While authoring the Phase 3 prompt, a live TypeSafe API key was written into
-`PROMPT_PHASE_3.md` in plaintext, in four places. The file was committed before
-the exposure was noticed.
+While authoring the Phase 3 work, a live TypeSafe API key was written into a
+project planning document in plaintext, in four places. That file was committed
+before the exposure was noticed.
 
 Timeline:
 
-1. The key was added to `PROMPT_PHASE_3.md` during prompt authoring.
+1. The key was added to the planning document while the Phase 3 work was being
+   prepared.
 2. The file was committed (`5124bcd`) together with the Phase 3 work, before the
    updated prompt content had been reviewed.
 3. The key was scrubbed from the file and replaced with `<REDACTED-API-KEY>`.

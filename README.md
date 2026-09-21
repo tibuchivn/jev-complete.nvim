@@ -100,7 +100,9 @@ require("jev").setup({
   relevance level. `noul` is the default and the cheapest.
 - `menu_update_mode` - how the ranked list replaces the fuzzy one. `auto` tries
   an in-place update and falls back to re-triggering completion; `inplace` and
-  `feedkeys` force one strategy. See `.omo/PHASE4_FINDINGS.md` for measurements.
+  `feedkeys` force one strategy. Both were measured to reorder the menu without
+  flicker or text corruption; `auto` uses the in-place path when it can confirm
+  the change.
 - `max_extract_words` - on very large buffers extraction stops at this cap, so
   words appearing after the first N unique words are not offered as candidates.
   Extraction over 5000 words measured 9ms, so the default of 20000 is cheap.

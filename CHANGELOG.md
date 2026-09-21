@@ -62,4 +62,4 @@ First release.
 - See `SECURITY.md` for the Phase 3 API key exposure incident: what happened,
   its impact, the remediation, and the practices adopted afterwards.
 
-[1.0.0]: https://github.com/yourname/jev-complete.nvim/releases/tag/v1.0.0
+[1.0.0]: https://github.com/tibuchivn/jev-complete.nvim/releases/tag/v1.0.0

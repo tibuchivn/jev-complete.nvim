@@ -39,7 +39,7 @@ Jev ranks candidates. It does not generate code.
 With lazy.nvim: >lua
 
     {
-      "yourname/jev-complete.nvim",
+      "tibuchivn/jev-complete.nvim",
       config = function()
         require("jev").setup()
       end,

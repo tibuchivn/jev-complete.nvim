@@ -19,7 +19,7 @@ Jev ranks. It does not generate code.
 
 ```lua
 {
-  "yourname/jev-complete.nvim",
+  "tibuchivn/jev-complete.nvim",
   config = function()
     require("jev").setup()
   end,

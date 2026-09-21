@@ -1,54 +1,197 @@
-*jev-complete.txt*  Code completion ranked by Jev (TypeSafe AI)
+*jev-complete.txt*  Semantic code completion using Jev AI
 
 ==============================================================================
-CONTENTS                                        *jev-complete-contents*
+CONTENTS                                              *jev-complete-contents*
 
-  1. Introduction ...................... |jev-complete-introduction|
-  2. Setup ............................. |jev-complete-setup|
-  3. Configuration ..................... |jev-complete-config|
-  4. Commands .......................... |jev-complete-commands|
-
-==============================================================================
-1. INTRODUCTION                                 *jev-complete-introduction*
-
-jev-complete.nvim provides code completion using Neovim's built-in
-|complete-functions|. Candidates are collected from the buffer and returned
-immediately as fuzzy matches; Jev (TypeSafe AI) then ranks them
-asynchronously and updates the completion menu with |complete()|.
-
-Jev acts as a ranking arbiter only. It does not generate code.
-
-Requires Neovim >= 0.12.
+  1. Introduction ................ |jev-complete-introduction|
+  2. Requirements ................ |jev-complete-requirements|
+  3. Installation ................ |jev-complete-installation|
+  4. Setup ....................... |jev-complete-setup|
+  5. Usage ....................... |jev-complete-usage|
+  6. Configuration ............... |jev-complete-configuration|
+  7. Architecture ................ |jev-complete-architecture|
+  8. Troubleshooting ............. |jev-complete-troubleshooting|
+  9. License ..................... |jev-complete-license|
 
 ==============================================================================
-2. SETUP                                             *jev-complete-setup*
+1. INTRODUCTION                                  *jev-complete-introduction*
 
->lua
-    require("jev").setup({})
+jev-complete.nvim provides semantic code completion by using Jev
+(https://typesafe.ai) as a ranking oracle.
+
+Candidates are collected from the current buffer and returned immediately as
+fuzzy matches using Neovim's built-in |complete-functions|. Jev then ranks them
+against the surrounding code, and the menu is rebuilt in the better order.
+
+Jev ranks candidates. It does not generate code.
+
+==============================================================================
+2. REQUIREMENTS                                  *jev-complete-requirements*
+
+  - Neovim 0.12 or newer
+  - A TypeSafe API key
+  - `curl` available in `$PATH`
+
+==============================================================================
+3. INSTALLATION                                *jev-complete-installation*
+
+With lazy.nvim: >lua
+
+    {
+      "yourname/jev-complete.nvim",
+      config = function()
+        require("jev").setup()
+      end,
+    }
 <
+Manually, add the repository to 'runtimepath' and call |jev-complete-setup|.
 
 ==============================================================================
-3. CONFIGURATION                                   *jev-complete-config*
+4. SETUP                                             *jev-complete-setup*
+
+The API key is read, in order of precedence, from: >lua
+
+    vim.g.jev_api_key        -- highest priority
+    $JEV_API_KEY             -- environment
+    $TYPESAFE_API_KEY        -- legacy environment variable
+<
+`$TYPESAFE_API_KEY` is still supported for backwards compatibility.
+
+Set the key in the environment: >bash
+
+    export JEV_API_KEY="your-key-here"
+<
+And call setup: >lua
+
+    require("jev").setup()
+<
+setup() accepts an optional table of overrides, see
+|jev-complete-configuration|.
+
+Without a key the plugin still loads. It warns once and completion falls back
+to fuzzy matching only.
+
+==============================================================================
+5. USAGE                                             *jev-complete-usage*
+
+  1. Enter insert mode in a buffer that has a filetype.
+  2. Type at least 3 characters of a word present in the buffer.
+  3. Press <C-x><C-u> to trigger completion.
+  4. Fuzzy candidates appear immediately.
+  5. After roughly one second the menu is rebuilt in Jev's order.
+
+Accept a candidate with <C-y>, or select one with <C-n> / <C-p>.
+
+==============================================================================
+6. CONFIGURATION                             *jev-complete-configuration*
 
 >lua
     require("jev").setup({
-      enabled = true,
-      confidence_threshold = 0.7,
-      max_candidates = 30,
+      enabled = true,               -- master switch
+      confidence_threshold = 0.7,   -- Jev must exceed this to reorder
+      max_candidates = 30,          -- candidates sent to Jev
       api_endpoint = "https://api.typesafe.ai/v1/systemone",
       model = "jev-latest",
-      debug = false,
+      debug = false,                -- verbose logging
+      debug_guards = false,         -- log why a menu update was rejected
+
+      min_word_length = 3,          -- shorter words are not candidates
+      max_extract_words = 5000,     -- cap on unique words taken from a buffer
+
+      jev_question_format = "noul", -- "noul" | "choice" | "score"
+      jev_timeout_ms = 3000,        -- per-request timeout
+      debounce_ms = 300,            -- delay before asking Jev
+      max_context_tokens = 28000,   -- context ceiling
+      context_fallback_lines = 200, -- lines around the cursor over the ceiling
+
+      disabled_filetypes = {},      -- filetypes that never get the completefunc
+      auto_trigger = false,         -- auto-trigger (not implemented yet)
+      manage_completeopt = true,    -- add buffer-local 'noselect'
+      menu_update_mode = "auto",    -- "feedkeys" | "inplace" | "auto"
     })
 <
+						*jev-complete-config-threshold*
+`confidence_threshold` ~
+	Jev only reorders when its probability for a candidate reaches this value.
+	Below it the fuzzy order is kept.
 
-The API key is read from `vim.g.jev_api_key` or `$TYPESAFE_API_KEY`.
+						*jev-complete-config-format*
+`jev_question_format` ~
+	How candidates are presented to Jev. "noul" asks a yes/no question per
+	candidate, "choice" asks Jev to pick the best one, and "score" asks for a
+	relevance level. "noul" is the default and the cheapest.
+
+						*jev-complete-config-menu-update*
+`menu_update_mode` ~
+	How the ranked list replaces the fuzzy one. "auto" attempts an in-place
+	update and falls back to re-triggering completion when it cannot confirm
+	the change. "inplace" and "feedkeys" force a single strategy.
+
+						*jev-complete-config-extract*
+`max_extract_words` ~
+	On very large buffers extraction stops at this cap. Words that appear after
+	the first N unique words are then not offered as candidates.
+
+						*jev-complete-config-filetypes*
+`disabled_filetypes` ~
+	List of filetypes that never receive the completefunc, for example: >lua
+
+	    disabled_filetypes = { "TelescopePrompt", "NvimTree", "markdown" }
+<
 
 ==============================================================================
-4. COMMANDS                                       *jev-complete-commands*
+7. ARCHITECTURE                              *jev-complete-architecture*
 
-                                                        *:JevComplete*
-:JevComplete            Placeholder. Commands will be documented in a later
-                        phase.
+Completion runs in passes because a completefunc cannot return
+asynchronously:
+
+	<C-x><C-u>
+	    -> pass 1: buffer words are filtered fuzzily; the menu appears
+	       immediately
+	    -> after a debounce, the context and candidates are sent to Jev
+	    -> the answer is parsed and the candidates are ranked
+	    -> guards are checked, then the menu is rebuilt in Jev's order
+
+Three guards protect the update: the popup must still be visible, the cursor
+must not have moved, and the typed prefix must not have changed.
+
+Guards for "an entry is selected" and "the buffer changed" are deliberately
+absent: the completion menu selects its first entry and changes the buffer's
+`changedtick` as soon as it opens, so those conditions can never hold during a
+real completion.
 
 ==============================================================================
-vim:tw=78:ts=8:noet:ft=help:norl:
+8. TROUBLESHOOTING                        *jev-complete-troubleshooting*
+
+No completion menu at all ~
+	Check the filetype is not in `disabled_filetypes`, and that >vim
+
+	    :set completefunc?
+<	reports `v:lua.JevComplete`.
+
+Menu appears but never reorders ~
+	Set `debug_guards = true`. The log names the guard that rejected the
+	update. Also confirm Neovim can see the key: >lua
+
+	    :lua print(require("jev.config").get_api_key() ~= nil)
+<
+
+Requests time out ~
+	Jev latency is commonly 0.5-1.5 seconds. Raise `jev_timeout_ms` and check
+	|:messages|.
+
+Nothing is logged ~
+	Set `debug = true` for verbose logging.
+
+Slow on a large buffer ~
+	Tune `max_extract_words` and `context_fallback_lines`.
+	`tests/benchmark_large_buffer.lua` reports timings for each stage.
+
+==============================================================================
+9. LICENSE                                          *jev-complete-license*
+
+MIT. See LICENSE in the repository. API key handling practices are documented
+in SECURITY.md.
+
+==============================================================================
+vim:tw=78:ts=8:et:ft=help:norl:

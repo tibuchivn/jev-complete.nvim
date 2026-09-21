@@ -1,7 +1,7 @@
 -- tests/integration_phase3.lua
 -- Layer 2: exercises the real Jev API end to end (headless, no UI).
 -- Run:
---   TYPESAFE_API_KEY=... nvim --headless -u NONE --cmd "set rtp^=$(pwd)" \
+--   JEV_API_KEY=... nvim --headless -u NONE --cmd "set rtp^=$(pwd)" \
 --     -c "luafile tests/integration_phase3.lua" -c "qa!"
 -- Prints PASS/FAIL and exits non-zero on failure. Skips when no key is set.
 
@@ -10,7 +10,7 @@ local client = require("jev.client")
 local complete = require("jev.complete")
 
 if not require("jev.config").get_api_key() then
-  print("SKIP: no TYPESAFE_API_KEY set; integration test needs a live key.")
+  print("SKIP: no API key set (JEV_API_KEY or TYPESAFE_API_KEY); integration test needs a live key.")
   os.exit(0)
 end
 

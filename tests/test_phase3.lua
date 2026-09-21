@@ -471,6 +471,61 @@ do
   client.call_async = real_call_async
 end
 
+-- menu_update_mode: "auto" must fall back to feedkeys when in-place cannot
+-- verify a change. Outside a popup complete() is unavailable, so the in-place
+-- attempt must fail and the feedkeys path must be taken instead.
+do
+  complete.reset()
+  set_lines({ "local greeter = 1", "gre" })
+  cache.clear()
+  vim.api.nvim_win_set_cursor(0, { 2, 3 })
+
+  local real_call_async = client.call_async
+  local real_feedkeys = vim.api.nvim_feedkeys
+  local feedkeys_used = false
+  vim.api.nvim_feedkeys = function(keys, feed_mode, escape)
+    if type(keys) == "string" and keys:find("\24\21", 1, true) then
+      feedkeys_used = true
+    end
+    return real_feedkeys(keys, feed_mode, escape)
+  end
+
+  client.call_async = function(_state, questions, callback)
+    local answers = {}
+    for name in pairs(questions) do
+      answers[name] = { noul = 0.9 }
+    end
+    vim.defer_fn(function()
+      callback(nil, answers)
+    end, 5)
+    return 905
+  end
+
+  init.config.menu_update_mode = "auto"
+  init.config.debounce_ms = 10
+  init.config.jev_question_format = "noul"
+
+  -- Headless has no popup, so Guard A would reject before the mode dispatch is
+  -- reached. Stub it: this test is about the fallback path, not the guards.
+  local real_guard = complete._should_re_trigger
+  complete._should_re_trigger = function()
+    return true
+  end
+
+  complete.JevComplete(1, "")
+  complete.JevComplete(0, "gre")
+  vim.wait(400, function()
+    return feedkeys_used
+  end)
+
+  eq(feedkeys_used, true, "auto mode falls back to feedkeys when in-place cannot verify")
+
+  complete._should_re_trigger = real_guard
+  init.config.menu_update_mode = "feedkeys"
+  client.call_async = real_call_async
+  vim.api.nvim_feedkeys = real_feedkeys
+end
+
 -- ---------------------------------------------------------------------------
 -- Restore + summary
 -- ---------------------------------------------------------------------------

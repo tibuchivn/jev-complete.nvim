@@ -66,7 +66,7 @@ eq(type(cache.get_jev_result), "function", "cache.get_jev_result is a function")
 eq(type(cache.clear_jev), "function", "cache.clear_jev is a function")
 
 eq(init.config.jev_question_format, "noul", "config.jev_question_format default")
-eq(init.config.jev_timeout_ms, 500, "config.jev_timeout_ms default")
+eq(init.config.jev_timeout_ms, 3000, "config.jev_timeout_ms default")
 eq(init.config.debounce_ms, 300, "config.debounce_ms default")
 eq(init.config.max_context_tokens, 28000, "config.max_context_tokens default")
 eq(init.config.context_fallback_lines, 200, "config.context_fallback_lines default")
@@ -153,7 +153,8 @@ do
     end)
     vim.wait(1000, function() return done end)
     ok(done, "timeout path invokes callback")
-    contains(got_err or "", "Jev timeout after 500ms", "timeout error message")
+    contains(got_err or "", "Jev timeout after " .. init.config.jev_timeout_ms .. "ms",
+      "timeout error message")
   end)
 end
 

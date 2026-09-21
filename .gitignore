@@ -1,8 +1,10 @@
 .env
+*.key
+secrets/
 *.swp
 __pycache__/
 .DS_Store
 .codegraph
 asterix_story_log.json
-tags
+/tags
 .omo/run-continuation/

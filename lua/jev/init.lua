@@ -16,7 +16,7 @@ M.config = {
   max_extract_words = 5000,   -- max unique words extracted from a buffer (NOTE: sẽ điều chỉnh sau)
 
   jev_question_format = "noul", -- "noul" | "choice" | "score": how candidates are asked about
-  jev_timeout_ms = 500,         -- timeout for each Jev call
+  jev_timeout_ms = 3000,        -- raised from 500ms: Phase 3 measured real Jev latency at 0.5-1.5s
   debounce_ms = 300,            -- delay before firing a Jev call
   max_context_tokens = 28000,   -- estimated token ceiling for the sent context
   context_fallback_lines = 200, -- lines around the cursor used when the buffer is too large
@@ -25,6 +25,7 @@ M.config = {
   auto_trigger = false,         -- auto completion is not implemented yet
   debug_guards = false,         -- log which guard rejected a re-trigger (independent of debug)
   manage_completeopt = true,    -- add buffer-local noselect so the menu can be rebuilt
+  menu_update_mode = "auto",   -- "feedkeys" | "inplace" | "auto": how the ranked menu replaces the fuzzy one
 }
 
 local VALID_QUESTION_FORMATS = {

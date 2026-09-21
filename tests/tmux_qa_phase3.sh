@@ -1,10 +1,10 @@
 #!/bin/bash
 # tests/tmux_qa_phase3.sh
 # Layer 3: real-UI E2E QA in a tmux session.
-# Requires tmux and TYPESAFE_API_KEY. Skips cleanly when either is missing.
+# Requires tmux and an API key ($JEV_API_KEY or $TYPESAFE_API_KEY). Skips cleanly when either is missing.
 #
 # Run:
-#   TYPESAFE_API_KEY=... ./tests/tmux_qa_phase3.sh
+#   JEV_API_KEY=... ./tests/tmux_qa_phase3.sh
 #
 # PASS is decided by the re-trigger MECHANISM, not by a menu pixel diff: Jev may
 # legitimately agree with the fuzzy order, which would leave the two pane
@@ -25,8 +25,8 @@ LOG="/tmp/jev_qa_phase3_pass.log"
 BEFORE="/tmp/jev_qa_phase3_before.txt"
 AFTER="/tmp/jev_qa_phase3_after.txt"
 
-if [ -z "${TYPESAFE_API_KEY:-}" ]; then
-  echo "SKIP: TYPESAFE_API_KEY not set"
+if [ -z "${JEV_API_KEY:-}" ] && [ -z "${TYPESAFE_API_KEY:-}" ]; then
+  echo "SKIP: no API key set (JEV_API_KEY or TYPESAFE_API_KEY)"
   exit 0
 fi
 
@@ -47,7 +47,7 @@ EOF
 # the key is handed over through a mode-600 temp file instead of the env or a
 # command line. It never enters the repository and is removed by cleanup().
 umask 077
-printf '%s' "$TYPESAFE_API_KEY" > "$KEYFILE"
+printf '%s' "${JEV_API_KEY:-$TYPESAFE_API_KEY}" > "$KEYFILE"
 
 cat > "$INITFILE" << LUA
 vim.opt.runtimepath:prepend("$REPO_ROOT")

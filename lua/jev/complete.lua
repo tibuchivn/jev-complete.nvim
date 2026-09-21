@@ -112,8 +112,43 @@ function M._schedule_debounce()
   end))
 end
 
--- Build the request, ask Jev to rank, then re-trigger completion so pass 2
--- can serve the ranked order.
+-- Replace the open menu with the ranked list without re-triggering completion.
+-- complete() expects a 1-based column, so start_col (0-based, as returned by
+-- findstart) needs the +1; passing the bare value also fails silently at
+-- column 0, where complete() does nothing for startcol <= 0.
+-- Returns true only when the menu verifiably changed, because complete() can
+-- also be a silent no-op and "auto" relies on this to fall back safely.
+local function apply_inplace(ranked_items)
+  local start_col = M.state.start_col
+  if type(start_col) ~= "number" or #ranked_items == 0 then
+    return false
+  end
+
+  if vim.fn.pumvisible() == 0 then
+    return false
+  end
+
+  if not pcall(vim.fn.complete, start_col + 1, ranked_items) then
+    return false
+  end
+
+  if vim.fn.pumvisible() == 0 then
+    return false
+  end
+
+  local items = vim.fn.complete_info({ "items" }).items or {}
+  return items[1] ~= nil and items[1].word == ranked_items[1].word
+end
+
+local function re_trigger()
+  vim.api.nvim_feedkeys(
+    vim.api.nvim_replace_termcodes("<C-x><C-u>", true, false, true),
+    "n",
+    false
+  )
+end
+
+-- Build the request, ask Jev to rank, then update the open menu.
 function M._trigger_jev_call()
   local state = M.state
   if not state or not state.prefix then
@@ -173,17 +208,31 @@ function M._trigger_jev_call()
       local bufnr = vim.api.nvim_get_current_buf()
       cache.set_jev_result(bufnr, current.snapshot_changedtick, current.prefix, probabilities)
 
+      local mode = init.config.menu_update_mode
+
+      if mode == "inplace" or mode == "auto" then
+        if apply_inplace(ranked_items) then
+          if init.config.debug then
+            init.log("menu updated in place")
+          end
+          return
+        end
+        if mode == "inplace" then
+          -- Explicitly requested: do not silently switch strategies.
+          if init.config.debug then
+            init.log("in-place update unavailable, menu left unchanged")
+          end
+          return
+        end
+      end
+
       current.cached_ranked_items = ranked_items
       current.readiness = {
         bufnr = current.snapshot_bufnr,
         prefix = current.prefix,
       }
 
-      vim.api.nvim_feedkeys(
-        vim.api.nvim_replace_termcodes("<C-x><C-u>", true, false, true),
-        "n",
-        false
-      )
+      re_trigger()
     end)
   end)
 end

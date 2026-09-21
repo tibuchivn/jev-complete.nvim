@@ -20,6 +20,11 @@ M.config = {
   debounce_ms = 300,            -- delay before firing a Jev call
   max_context_tokens = 28000,   -- estimated token ceiling for the sent context
   context_fallback_lines = 200, -- lines around the cursor used when the buffer is too large
+
+  disabled_filetypes = {},      -- filetypes that never get the completefunc
+  auto_trigger = false,         -- auto completion is not implemented yet
+  debug_guards = false,         -- log which guard rejected a re-trigger (independent of debug)
+  manage_completeopt = true,    -- add buffer-local noselect so the menu can be rebuilt
 }
 
 local VALID_QUESTION_FORMATS = {
@@ -27,6 +32,53 @@ local VALID_QUESTION_FORMATS = {
   choice = true,
   score = true,
 }
+
+-- Add noselect buffer-locally so the popup does not auto-select its first
+-- entry. The completion menu itself bumps changedtick and selects index 0 as
+-- soon as it opens, which would make the re-trigger guards reject every update.
+-- completeopt is global-local: reading it with only { buf = N } yields "" when
+-- no buffer-local value exists, so fall back to the global value to avoid
+-- discarding flags such as menu/popup.
+local function ensure_noselect(bufnr)
+  local effective = vim.api.nvim_get_option_value("completeopt", { buf = bufnr, scope = "local" })
+  if effective == "" then
+    effective = vim.api.nvim_get_option_value("completeopt", { scope = "global" })
+  end
+
+  local parts = vim.split(effective, ",", { trimempty = true })
+  for _, part in ipairs(parts) do
+    if part == "noselect" then
+      return
+    end
+  end
+
+  parts[#parts + 1] = "noselect"
+  vim.api.nvim_set_option_value("completeopt", table.concat(parts, ","), { buf = bufnr })
+end
+
+-- Attach the completefunc to buffers as they get a filetype, skipping any
+-- filetype listed in disabled_filetypes.
+local function register_autocmds()
+  local augroup = vim.api.nvim_create_augroup("JevComplete", { clear = true })
+
+  vim.api.nvim_create_autocmd("FileType", {
+    group = augroup,
+    callback = function(args)
+      local filetype = vim.bo.filetype
+      for _, disabled in ipairs(M.config.disabled_filetypes) do
+        if filetype == disabled then
+          return
+        end
+      end
+
+      vim.opt_local.completefunc = "v:lua.JevComplete"
+
+      if M.config.manage_completeopt then
+        ensure_noselect(args.buf)
+      end
+    end,
+  })
+end
 
 -- User-facing setup.
 -- Example: require('jev').setup({ confidence_threshold = 0.8 })
@@ -46,12 +98,27 @@ function M.setup(user_config)
 
   -- Validate the API key; warns once and never crashes when missing.
   require("jev.config").validate()
+
+  -- Load the completion module so it publishes the global that the
+  -- completefunc string ("v:lua.JevComplete") resolves against. Without this
+  -- the global is still nil the first time completion runs.
+  require("jev.complete")
+
+  register_autocmds()
   return M.config
 end
 
 -- Debug logger; prints only when config.debug is true.
 function M.log(msg)
   if M.config.debug then
+    vim.notify("[jev-complete] " .. msg, vim.log.levels.INFO)
+  end
+end
+
+-- Guard logger; independent of config.debug so guard rejections can be
+-- inspected on their own.
+function M.log_guard(msg)
+  if M.config.debug_guards then
     vim.notify("[jev-complete] " .. msg, vim.log.levels.INFO)
   end
 end

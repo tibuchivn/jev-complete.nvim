@@ -88,7 +88,7 @@ function M.filter_candidates(prefix, words)
     end
 
     if score then
-      results[#results + 1] = { word = entry.word, score = score }
+      results[#results + 1] = { word = entry.word, lower = lower, score = score }
     end
   end
 

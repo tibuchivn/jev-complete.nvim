@@ -16,6 +16,10 @@ local function now_ms()
   return vim.uv.hrtime() / 1e6
 end
 
+local function trim(text)
+  return (text:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
 local function finish(id, callback)
   pending[id] = nil
   callback()
@@ -69,12 +73,21 @@ function M.call_async(state, questions, callback)
       local elapsed = now_ms() - started
       init.log(string.format("jev call #%d finished in %.0fms (exit %d)", id, elapsed, result.code))
 
-      local timed_out = result.code ~= 0
-        or (result.stderr or ""):find("Operation timed out", 1, true) ~= nil
+      local stderr = trim(result.stderr or "")
 
-      if timed_out then
+      if result.code ~= 0 then
+        local message
+        if result.code == 28 then
+          message = string.format("Jev timeout after %dms", init.config.jev_timeout_ms)
+        elseif result.code == 6 then
+          message = "Jev DNS resolution failed: " .. stderr
+        elseif result.code == 7 then
+          message = "Jev connection failed: " .. stderr
+        else
+          message = string.format("Jev request failed (curl exit %d): %s", result.code, stderr)
+        end
         finish(id, function()
-          callback(string.format("Jev timeout after %dms", init.config.jev_timeout_ms), nil)
+          callback(message, nil)
         end)
         return
       end
